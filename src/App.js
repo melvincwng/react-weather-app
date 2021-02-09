@@ -1,12 +1,17 @@
 import "./App.css";
 import React, { useState, useEffect } from "react";
 import WeatherIcon from "./components/WeatherIcon";
+import WeatherExtraInfo from "./components/WeatherExtraInfo";
+import LoaderApp from "./components/LoaderApp";
 
 function App() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [units, setUnits] = useState("C");
   const [weatherData, setWeatherData] = useState({
     main: {},
     sys: {},
     weather: [{}],
+    wind: { speed: 0.0 },
   });
 
   const [forecastData, setForecastData] = useState({ list: [{}] });
@@ -14,21 +19,78 @@ function App() {
   const [weatherIcon, setWeatherIcon] = useState("loading");
   const [weatherDescription, setWeatherDescription] = useState("");
 
+  const [cityLocalTime, setCityLocalTime] = useState("");
+
   const baseUrl = "http://api.openweathermap.org/data/2.5/";
   const endpoint = "weather";
   const endpointForecast = "forecast";
-  const [city, setCity] = useState("Singapore");
+  const [city, setCity] = useState("London");
 
-  const [queryUrl, setQueryUrl] = useState(
-    `${baseUrl}${endpoint}?q=${city}&appid=${process.env.REACT_APP_OWM_API_KEY}`
-  );
+  const [queryUrl, setQueryUrl] = useState("");
+  // `${baseUrl}${endpoint}?q=${city}&appid=${process.env.REACT_APP_OWM_API_KEY}`
 
-  const [forecastUrl, setForecastUrl] = useState(
-    `${baseUrl}${endpointForecast}?q=${city}&appid=${process.env.REACT_APP_OWM_API_KEY}`
-  );
+  const [forecastUrl, setForecastUrl] = useState("");
+  // `${baseUrl}${endpointForecast}?q=${city}&appid=${process.env.REACT_APP_OWM_API_KEY}`
+
+  const timeConverter = (date, offset, showDate = false) => {
+    // takes date object
+    // returns string in format hh:mm AM/PM
+    // offset is in seconds, and may not be
+    // an integer number of hours
+    // for line 44, it seems that GMT 0 and GMT -ve countries's date objects are OK
+    // however, GMT +ve countries's date objects need to minus 1 day's worth of milliseconds
+    const offsetMilliseconds = offset * 1000;
+    console.log(offsetMilliseconds)
+    const localDate = offsetMilliseconds <= 0 ? new Date(date.getTime()  + offsetMilliseconds) : new Date(date.getTime()  + offsetMilliseconds - 86400000);
+    const hours24 = localDate.getUTCHours();
+    const minutes = localDate.getUTCMinutes();
+    const minutesPadded = minutes < 9 ? `0${minutes}` : minutes;
+    const hours12 = hours24 % 12;
+    const ampm = hours24 < 12 ? "AM" : "PM";
+
+    const timeString = `${hours12}:${minutesPadded} ${ampm}`;
+
+    if (showDate) {
+      const day = localDate.getUTCDay();
+      const dateNumber = localDate.getUTCDate();
+      const month = localDate.getUTCMonth();
+      const year = localDate.getUTCFullYear();
+      const dateString = localDate.toLocaleDateString();
+      return `${dateString} ${timeString}`;
+    }
+
+    return timeString;
+  };
+
+  const getInitialDataUsingGeolocation = (position) => {
+    const lat = position.coords.latitude;
+    const long = position.coords.longitude;
+    setQueryUrl(
+      `${baseUrl}${endpoint}?lat=${lat}&lon=${long}&appid=${process.env.REACT_APP_OWM_API_KEY}`
+    );
+    setForecastUrl(
+      `${baseUrl}${endpointForecast}?lat=${lat}&lon=${long}&appid=${process.env.REACT_APP_OWM_API_KEY}`
+    );
+  };
+
+  const getInitialDataUsingDefaultCity = (city) => {
+    setQueryUrl(
+      `${baseUrl}${endpoint}?q=${city}&appid=${process.env.REACT_APP_OWM_API_KEY}`
+    );
+    setForecastUrl(
+      `${baseUrl}${endpointForecast}?q=${city}&appid=${process.env.REACT_APP_OWM_API_KEY}`
+    );
+  };
 
   useEffect(() => {
-    fetch(queryUrl)
+    navigator.geolocation.getCurrentPosition(
+      (position) => getInitialDataUsingGeolocation(position),
+      getInitialDataUsingDefaultCity(city)
+    );
+  }, [city]);
+
+  useEffect(() => {
+    const fetchQuery = fetch(queryUrl)
       .then((response) => response.json())
       .then((json) => {
         setWeatherData(json);
@@ -36,13 +98,17 @@ function App() {
       })
       .catch((err) => console.log(err));
 
-    fetch(forecastUrl)
+    const fetchForecast = fetch(forecastUrl)
       .then((response) => response.json())
       .then((json) => {
         setForecastData(json);
         console.log(forecastData.list[0]);
       })
       .catch((err) => console.log(err));
+
+    Promise.all([fetchQuery, fetchForecast]).then(() => {
+      setIsLoading(false);
+    });
   }, [queryUrl, forecastUrl]);
 
   useEffect(() => {
@@ -50,6 +116,8 @@ function App() {
       const iconCode = weatherData.weather[0].icon;
       setWeatherIcon(`http://openweathermap.org/img/wn/${iconCode}@2x.png`);
       setWeatherDescription(weatherData.weather[0].description);
+      setCityLocalTime(timeConverter(new Date(), weatherData.timezone, true));
+      // setIsLoading(false);
     } catch (err) {
       console.log(err);
     }
@@ -65,33 +133,22 @@ function App() {
     );
   };
 
-  const tempConvertor = (temp) => {
-    return (temp - 273.15).toFixed(1);
+  const tempConverter = (temp) => {
+    let convertedTemp = "";
+    if (units === "F") {
+      convertedTemp = ((temp - 273.15) * 9) / 5 + 32;
+    } else {
+      convertedTemp = temp - 273.15;
+    }
+
+    return convertedTemp.toFixed(1);
   };
 
   const currentDate = new Date();
-  const currentDate_string = currentDate.toString();
+  const currentDate_string = currentDate.toUTCString();
 
   const sunRise = new Date(weatherData.sys.sunrise * 1000);
   const sunSet = new Date(weatherData.sys.sunset * 1000);
-
-  const timeConverter = (date, offset) => {
-    // takes date object
-    // returns string in format hh:mm AM/PM
-    // offset is in seconds, and may not be
-    // an integer number of hours
-
-    const offsetMilliseconds = offset * 1000;
-    const localDate = new Date(date.getTime() + offsetMilliseconds);
-
-    const hours24 = localDate.getUTCHours();
-    const minutes = localDate.getUTCMinutes();
-    const minutesPadded = minutes < 9 ? `0${minutes}` : minutes;
-    const hours12 = hours24 % 12;
-    const ampm = hours24 < 12 ? "AM" : "PM";
-
-    return `${hours12}:${minutesPadded} ${ampm}`;
-  };
 
   const getPrecipitationChance = (forecastData) => {
     try {
@@ -108,138 +165,123 @@ function App() {
     }
   };
 
-  const getIconUrl = (weatherData) => {
-    try {
-      const iconCode = weatherData.weather[0].icon;
-      return `http://openweathermap.org/img/wn/${iconCode}@2x.png`;
-    } catch (err) {
-      console.log(err);
-      return "";
-    }
+  const changeUnits = (e) => {
+    setUnits(e.target.value);
   };
 
   return (
     <div className="App">
-      <form onSubmit={handleSubmit}>
-        <input
-          type="text"
-          value={city}
-          onChange={(e) => setCity(e.target.value)}
-          placeholder="City name"
-        />
-        <input type="submit" value="Go" onSubmit={handleSubmit} />
-      </form>
-      <div className="weather-info">
-        <div className="info-small">{currentDate_string}</div>
-        <div className="weather-info-main">
-          <WeatherIcon icon={weatherIcon} weather={weatherDescription} />
-          <div>
-            <div className="temp-current">
-              {tempConvertor(weatherData.main.temp)} ºC
+      <LoaderApp loading={isLoading} />
+      <div className={isLoading ? "d-none" : ""}>
+        <form onSubmit={handleSubmit}>
+          <input
+            type="text"
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            placeholder="City name"
+            aria-label="input-box"
+          />
+          <input
+            type="submit"
+            value="Go"
+            onSubmit={handleSubmit}
+            aria-label="go-button"
+          />
+          <label htmlFor="C">
+            <input
+              type="radio"
+              id="C"
+              name="units"
+              value="C"
+              onChange={changeUnits}
+              checked={units === "C"}
+            />
+            ºC
+          </label>
+          <label htmlFor="F">
+            <input
+              type="radio"
+              id="F"
+              name="units"
+              value="F"
+              onChange={changeUnits}
+              checked={units === "F"}
+            />
+            ºF
+          </label>
+        </form>
+        <div className="weather-info">
+          <div className="info-small">{cityLocalTime}</div>
+          <div className="weather-info-main">
+            <WeatherIcon icon={weatherIcon} weather={weatherDescription} />
+            <div>
+              <div className="temp-current">
+                {tempConverter(weatherData.main.temp)} º{units}
+              </div>
+              <div className="info-small">{weatherData.name}</div>
             </div>
-            <div className="info-small">{weatherData.name}</div>
+          </div>
+          <div className="weather-info-extras">
+            <WeatherExtraInfo
+              align="left"
+              info={getPrecipitationChance(forecastData)}
+              description="precipitation chance"
+              image="umbrella.svg"
+              imageAlt="umbrella in rainy weather"
+              tooltip="Chance of rain/snow in the next 3 hours"
+            />
+            <WeatherExtraInfo
+              align="right"
+              info={`${tempConverter(weatherData.main.feels_like)} º${units}`}
+              description="feels like"
+              image="thermometer-sunny.svg"
+              imageAlt="thermometer in sunny weather"
+              tooltip="What temperature it really feels like outside, when accounting for humidity and wind"
+            />
+            <WeatherExtraInfo
+              align="left"
+              info={`${weatherData.main.humidity}%`}
+              description="humidity"
+              image="humidity.svg"
+              imageAlt="thermometer with raindrop"
+              tooltip="Humidity levels of 20-60% are in the 'Comfortable Range'."
+            />
+            <WeatherExtraInfo
+              align="right"
+              info={`${weatherData.wind.speed.toFixed(1)} m/s`}
+              description="wind speed"
+              image="windsock.svg"
+              imageAlt="windsock"
+              tooltip="Wind speeds above 12m/s can be dangerous"
+            />
+            <WeatherExtraInfo
+              align="left"
+              info={timeConverter(sunRise, weatherData.timezone)}
+              description="sunrise"
+              image="sunrise.svg"
+              imageAlt="sun rising over horizon"
+              tooltip="The time the first rays of sun appear on the horizon"
+            />
+            <WeatherExtraInfo
+              align="right"
+              info={timeConverter(sunSet, weatherData.timezone)}
+              description="sunset"
+              image="sunset.svg"
+              imageAlt="sun setting on the horizon"
+              tooltip="The time the last rays of sun disappear over the horizon"
+            />
           </div>
         </div>
-        <div className="weather-info-extras">
-          <div className="weather-info-cell-left">
-            <div>
-              <div className="info-medium">
-                {tempConvertor(weatherData.main.temp_min)} ºC
-              </div>
-              <div className="info-small">minimum</div>
-            </div>
-            <div className="abcde">
-              <img
-                className="icon down-arrow"
-                alt="down"
-                src={process.env.PUBLIC_URL + "/assets/thermometer-cold.svg"}
-              ></img>
-            </div>
-          </div>
-          <div className="weather-info-cell-right">
-            <div className="abcde">
-              <img
-                className="icon up-arrow"
-                alt="up"
-                src={process.env.PUBLIC_URL + "/assets/thermometer-sunny.svg"}
-              ></img>
-            </div>
-            <div>
-              <div className="info-medium">
-                {tempConvertor(weatherData.main.temp_max)} ºC
-              </div>
-              <div className="info-small">maximum</div>
-            </div>
-          </div>
-          <div className="weather-info-cell-left">
-            <div>
-              <div className="info-medium">{weatherData.main.humidity} %</div>
-              <div className="info-small">humidity</div>
-            </div>
-            <div className="abcde">
-              <img
-                className="icon raindrop"
-                src={process.env.PUBLIC_URL + "/assets/humidity.svg"}
-                alt="raindrop"
-              ></img>
-            </div>
-          </div>
-          <div className="weather-info-cell-right">
-            <div className="abcde">
-              <img
-                className="icon rain"
-                src={process.env.PUBLIC_URL + "/assets/umbrella.svg"}
-                alt="rain"
-              ></img>
-            </div>
-            <div>
-              <div className="info-medium">
-                {getPrecipitationChance(forecastData)}
-              </div>
-              <div className="info-small">precipitation chance</div>
-            </div>
-          </div>
-          <div className="weather-info-cell-left">
-            <div>
-              <div className="info-medium">
-                {timeConverter(sunRise, weatherData.timezone)}
-              </div>
-              <div className="info-small">sunrise</div>
-            </div>
-            <div className="abcde">
-              <img
-                className="icon sun-rise"
-                src={process.env.PUBLIC_URL + "/assets/sunrise.svg"}
-                alt="sunrise"
-              ></img>
-            </div>
-          </div>
-          <div className="weather-info-cell-right">
-            <div className="abcde">
-              <img
-                className="icon sun-rise"
-                src={process.env.PUBLIC_URL + "/assets/sunset.svg"}
-                alt="sunset"
-              ></img>
-            </div>
-            <div>
-              <div className="info-medium">
-                {timeConverter(sunSet, weatherData.timezone)}
-              </div>
-              <div className="info-small">sunset</div>
-            </div>
-          </div>
+        <div className="attribution">
+          Icons made by{" "}
+          <a href="https://www.freepik.com" title="Freepik">
+            Freepik
+          </a>{" "}
+          from{" "}
+          <a href="https://www.flaticon.com/" title="Flaticon">
+            www.flaticon.com
+          </a>
         </div>
-      </div>
-      <div>
-        Icons made by{" "}
-        <a href="https://www.freepik.com" title="Freepik">
-          Freepik
-        </a>{" "}
-        from{" "}
-        <a href="https://www.flaticon.com/" title="Flaticon">
-          www.flaticon.com
-        </a>
       </div>
     </div>
   );

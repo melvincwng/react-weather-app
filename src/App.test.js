@@ -1,8 +1,8 @@
-import { render, screen } from '@testing-library/react';
+/* import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import App from './App';
+import WeatherExtraInfo from './components/WeatherExtraInfo'; */
 
-test('renders learn react link', () => {
-  render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+
+test("go away until I need you", () => {
+  expect(1).toEqual(1);
 });

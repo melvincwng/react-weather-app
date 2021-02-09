@@ -5,6 +5,10 @@
   width: 60%;
 }
 
+.d-none {
+  display: none;
+}
+
 input {
   border: 2px solid #cccccc;
   border-radius: 0.5rem;
@@ -32,18 +36,15 @@ input[type="submit"] {
   justify-content: center;
 }
 
-
 .weather-info-extras {
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-gap: 20px;
   margin-top: 25px;
-
 }
 
 .weather-info-cell {
   display: flex;
-  
 }
 .temp-current {
   font-size: 3rem;
@@ -56,46 +57,6 @@ input[type="submit"] {
 .info-small {
   font-size: 1rem;
   color: #888888;
-}
-
-.sun-image {
-  width: 100px;
-  height: 100px;
-  margin-top: 10px;
-}
-
-.sun-rise {
-  width: 100px;
-  height: 100px;
-  margin-top: 10px;
-}
-
-.raindrop {
-  width: 100px;
-  height: 100px;
-  margin-top: 10px;
-}
-
-.rain {
-  width: 100px;
-  height: 100px;
-  margin-top: 10px;
-}
-
-.down-arrow {
-  width: 20px;
-  height: 20px;
-  margin-top: 1px;
-}
-
-.up-arrow {
-  width: 20px;
-  height: 20px;
-  margin-top: 1px;
-}
-
-.icon {
-  display: block;
 }
 
 .width-200 {
@@ -114,10 +75,14 @@ input[type="submit"] {
 
 .abcde {
   width: 60px;
+  margin-left: 15px;
+  margin-right: 15px;
 }
 .icon {
   width: 100%;
   height: auto;
+  margin-top: 10px;
+  display: block;
 }
 
 .weather-info-cell-right {
@@ -125,4 +90,44 @@ input[type="submit"] {
   align-items: center;
   justify-content: flex-start;
   text-align: left;
+}
+
+.attribution {
+  margin-top: 30px;
+  font-size: 10px;
+  color: lightgray;
+}
+
+.attribution a {
+  font-size: 10px;
+  color: lightgray;
+}
+
+.tooltip {
+  position: relative;
+}
+
+.tooltip .tooltiptext {
+  visibility: hidden;
+  width: 120px;
+  background-color: black;
+  color: #fff;
+  text-align: center;
+  padding: 5px 0;
+  border-radius: 6px;
+  position: absolute;
+  z-index: 1;
+}
+
+.tooltip.weather-info-cell-left .tooltiptext {
+  left: 0px;
+}
+
+.tooltip.weather-info-cell-right .tooltiptext {
+  right: 0px;
+}
+
+/* Show the tooltip text when you mouse over the tooltip container */
+.tooltip:hover .tooltiptext {
+  visibility: visible;
 }
