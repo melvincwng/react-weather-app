@@ -26,6 +26,10 @@ function WeatherInfo({
     setMessageFlash({ message: tooltip, className: "tool-tip" });
   };
 
+  const clearToolTip = () => {
+    setMessageFlash({ message: "" });
+  };
+
   return (
     <div className="weather-info">
       <WeatherMainInfo
@@ -45,6 +49,7 @@ function WeatherInfo({
           onMouseOver={() => {
             showToolTip("Chance of rain/snow in the next 3 hours");
           }}
+          onMouseOut={clearToolTip}
         >
           <WeatherExtraInfo
             align="left"
@@ -60,6 +65,7 @@ function WeatherInfo({
               "What temperature it really feels like outside, when accounting for humidity and wind"
             );
           }}
+          onMouseOut={clearToolTip}
         >
           <WeatherExtraInfo
             align="right"
@@ -75,6 +81,7 @@ function WeatherInfo({
               "Humidity levels of 20-60% are in the 'Comfortable Range'."
             );
           }}
+          onMouseOut={clearToolTip}
         >
           <WeatherExtraInfo
             align="left"
@@ -88,6 +95,7 @@ function WeatherInfo({
           onMouseOver={() => {
             showToolTip("Wind speeds above 12m/s can be dangerous");
           }}
+          onMouseOut={clearToolTip}
         >
           <WeatherExtraInfo
             align="right"
@@ -101,6 +109,7 @@ function WeatherInfo({
           onMouseOver={() => {
             showToolTip("The time the first rays of sun appear on the horizon");
           }}
+          onMouseOut={clearToolTip}
         >
           <WeatherExtraInfo
             align="left"
@@ -116,6 +125,7 @@ function WeatherInfo({
               "The time the last rays of sun disappear over the horizon"
             );
           }}
+          onMouseOut={clearToolTip}
         >
           <WeatherExtraInfo
             align="right"
