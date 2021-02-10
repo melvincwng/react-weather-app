@@ -1,0 +1,11 @@
+.weather-info-main {
+  display: flex;
+  justify-content: center;
+  margin-right: 25px;
+}
+.temp-current-container {
+  margin-top: 15px;
+}
+.temp-current {
+  font-size: 3rem;
+}

@@ -1,10 +1,22 @@
 import "./App.css";
 import React, { useState, useEffect } from "react";
-import WeatherIcon from "./components/WeatherIcon";
 import WeatherExtraInfo from "./components/WeatherExtraInfo";
 import LoaderApp from "./components/LoaderApp";
+import MessageFlash from "./components/MessageFlash";
+import WeatherMainInfo from "./components/WeatherMainInfo";
+import Footer from "./components/Footer";
+import WeatherInfo from "./components/WeatherInfo";
+import Switch from '@material-ui/core/Switch';
+import FormControlLabel from '@material-ui/core/FormControlLabel';
 
 function App() {
+  // constants
+  const baseUrl = "http://api.openweathermap.org/data/2.5/";
+  const endpoint = "weather";
+  const endpointForecast = "forecast";
+
+  // state and state-dependent declarations
+  const [isValidCity, setIsValidCity] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [units, setUnits] = useState("C");
   const [weatherData, setWeatherData] = useState({
@@ -13,98 +25,61 @@ function App() {
     weather: [{}],
     wind: { speed: 0.0 },
   });
+  const sunRise = weatherData.sys.sunrise * 1000;
+  const sunSet = weatherData.sys.sunset * 1000;
 
   const [forecastData, setForecastData] = useState({ list: [{}] });
-
   const [weatherIcon, setWeatherIcon] = useState("loading");
   const [weatherDescription, setWeatherDescription] = useState("");
-
   const [cityLocalTime, setCityLocalTime] = useState("");
-
-  const baseUrl = "http://api.openweathermap.org/data/2.5/";
-  const endpoint = "weather";
-  const endpointForecast = "forecast";
   const [city, setCity] = useState("London");
+  const [queryCity, setQueryCity] = useState("London");
+  const [queryUrl, setQueryUrl] = useState(
+    `${baseUrl}${endpoint}?q=${city}&appid=${process.env.REACT_APP_OWM_API_KEY}`
+  );
+  const [forecastUrl, setForecastUrl] = useState(
+    `${baseUrl}${endpointForecast}?q=${city}&appid=${process.env.REACT_APP_OWM_API_KEY}`
+  );
 
-  const [queryUrl, setQueryUrl] = useState("");
-  // `${baseUrl}${endpoint}?q=${city}&appid=${process.env.REACT_APP_OWM_API_KEY}`
-
-  const [forecastUrl, setForecastUrl] = useState("");
-  // `${baseUrl}${endpointForecast}?q=${city}&appid=${process.env.REACT_APP_OWM_API_KEY}`
-
-  const timeConverter = (date, offset, showDate = false) => {
-    // takes date object
-    // returns string in format hh:mm AM/PM
-    // offset is in seconds, and may not be
-    // an integer number of hours
-    // for line 44, it seems that GMT 0 and GMT -ve countries's date objects are OK
-    // however, GMT +ve countries's date objects need to minus 1 day's worth of milliseconds
-    const offsetMilliseconds = offset * 1000;
-    console.log(offsetMilliseconds)
-    const localDate = offsetMilliseconds <= 0 ? new Date(date.getTime()  + offsetMilliseconds) : new Date(date.getTime()  + offsetMilliseconds - 86400000);
-    const hours24 = localDate.getUTCHours();
-    const minutes = localDate.getUTCMinutes();
-    const minutesPadded = minutes < 9 ? `0${minutes}` : minutes;
-    const hours12 = hours24 % 12;
-    const ampm = hours24 < 12 ? "AM" : "PM";
-
-    const timeString = `${hours12}:${minutesPadded} ${ampm}`;
-
-    if (showDate) {
-      const day = localDate.getUTCDay();
-      const dateNumber = localDate.getUTCDate();
-      const month = localDate.getUTCMonth();
-      const year = localDate.getUTCFullYear();
-      const dateString = localDate.toLocaleDateString();
-      return `${dateString} ${timeString}`;
-    }
-
-    return timeString;
-  };
-
-  const getInitialDataUsingGeolocation = (position) => {
-    const lat = position.coords.latitude;
-    const long = position.coords.longitude;
-    setQueryUrl(
-      `${baseUrl}${endpoint}?lat=${lat}&lon=${long}&appid=${process.env.REACT_APP_OWM_API_KEY}`
-    );
-    setForecastUrl(
-      `${baseUrl}${endpointForecast}?lat=${lat}&lon=${long}&appid=${process.env.REACT_APP_OWM_API_KEY}`
-    );
-  };
-
-  const getInitialDataUsingDefaultCity = (city) => {
-    setQueryUrl(
-      `${baseUrl}${endpoint}?q=${city}&appid=${process.env.REACT_APP_OWM_API_KEY}`
-    );
-    setForecastUrl(
-      `${baseUrl}${endpointForecast}?q=${city}&appid=${process.env.REACT_APP_OWM_API_KEY}`
-    );
-  };
-
+  // effects
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
-      (position) => getInitialDataUsingGeolocation(position),
-      getInitialDataUsingDefaultCity(city)
+      getInitialDataUsingGeolocation,
+      getInitialDataUsingDefaultCity
     );
-  }, [city]);
+  }, []);
+
+  // useEffect(() => {
+  //   if (messageFlash.message === "") return;
+  //   setTimeout(() => {
+  //     setMessageFlash({ message: "", className: "" });
+  //   }, 6000);
+  // }, [messageFlash]);
 
   useEffect(() => {
     const fetchQuery = fetch(queryUrl)
       .then((response) => response.json())
       .then((json) => {
-        setWeatherData(json);
-        console.log(weatherData);
+        if (json.cod === "404") {
+          setIsValidCity(false);
+        } else {
+          setWeatherData(json);
+          setIsValidCity(true);
+        }
       })
-      .catch((err) => console.log(err));
+      .catch(console.log);
 
     const fetchForecast = fetch(forecastUrl)
       .then((response) => response.json())
       .then((json) => {
-        setForecastData(json);
-        console.log(forecastData.list[0]);
+        if (json.cod === "404") {
+          setIsValidCity(false);
+        } else {
+          setForecastData(json);
+          setIsValidCity(true);
+        }
       })
-      .catch((err) => console.log(err));
+      .catch(console.log);
 
     Promise.all([fetchQuery, fetchForecast]).then(() => {
       setIsLoading(false);
@@ -114,23 +89,48 @@ function App() {
   useEffect(() => {
     try {
       const iconCode = weatherData.weather[0].icon;
-      setWeatherIcon(`http://openweathermap.org/img/wn/${iconCode}@2x.png`);
+      if (!iconCode) return;
+      setWeatherIcon(
+        `${process.env.PUBLIC_URL}/assets/owm_weather_codes/${iconCode}@2x.png`
+      );
       setWeatherDescription(weatherData.weather[0].description);
-      setCityLocalTime(timeConverter(new Date(), weatherData.timezone, true));
+      setCityLocalTime(timeConverter(Date.now(), weatherData.timezone, true));
       // setIsLoading(false);
     } catch (err) {
       console.log(err);
     }
   }, [weatherData]);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setQueryUrl(
-      `${baseUrl}${endpoint}?q=${city}&appid=${process.env.REACT_APP_OWM_API_KEY}`
-    );
-    setForecastUrl(
-      `${baseUrl}${endpointForecast}?q=${city}&appid=${process.env.REACT_APP_OWM_API_KEY}`
-    );
+  // functions - conversions
+  const timeConverter = (date, offset, showDate = false) => {
+    // takes date as timestamp, not as date object
+    // shows time in this format: 1:23 pm
+    // if showDate is true, shows date in this format:
+    // Wed, 10 Feb 2021, 12:00 pm
+    // offset is in seconds, and may not be
+    // an integer number of hours
+
+    const offsetMilliseconds = offset * 1000;
+    const localDate = new Date(date + offsetMilliseconds);
+
+    let options = {
+      timeZone: "UTC",
+      hour: "numeric",
+      minute: "2-digit",
+      hourCycle: "h12",
+    };
+    if (showDate) {
+      options = {
+        ...options,
+        weekday: "short",
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      };
+    }
+
+    const timeString = localDate.toLocaleString("en-GB", options);
+    return timeString;
   };
 
   const tempConverter = (temp) => {
@@ -144,11 +144,27 @@ function App() {
     return convertedTemp.toFixed(1);
   };
 
-  const currentDate = new Date();
-  const currentDate_string = currentDate.toUTCString();
+  // functions - API-related
 
-  const sunRise = new Date(weatherData.sys.sunrise * 1000);
-  const sunSet = new Date(weatherData.sys.sunset * 1000);
+  const getInitialDataUsingGeolocation = (position) => {
+    const lat = position.coords.latitude;
+    const long = position.coords.longitude;
+    setQueryUrl(
+      `${baseUrl}${endpoint}?lat=${lat}&lon=${long}&appid=${process.env.REACT_APP_OWM_API_KEY}`
+    );
+    setForecastUrl(
+      `${baseUrl}${endpointForecast}?lat=${lat}&lon=${long}&appid=${process.env.REACT_APP_OWM_API_KEY}`
+    );
+  };
+
+  const getInitialDataUsingDefaultCity = () => {
+    setQueryUrl(
+      `${baseUrl}${endpoint}?q=${city}&appid=${process.env.REACT_APP_OWM_API_KEY}`
+    );
+    setForecastUrl(
+      `${baseUrl}${endpointForecast}?q=${city}&appid=${process.env.REACT_APP_OWM_API_KEY}`
+    );
+  };
 
   const getPrecipitationChance = (forecastData) => {
     try {
@@ -165,8 +181,26 @@ function App() {
     }
   };
 
+  // functions - event handlers
   const changeUnits = (e) => {
-    setUnits(e.target.value);
+    const isCelsius = e.target.checked;
+    if (isCelsius) {
+      setUnits("C")
+    } else {
+      setUnits("F")
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (city === "") return;
+    setQueryCity(city);
+    setQueryUrl(
+      `${baseUrl}${endpoint}?q=${city}&appid=${process.env.REACT_APP_OWM_API_KEY}`
+    );
+    setForecastUrl(
+      `${baseUrl}${endpointForecast}?q=${city}&appid=${process.env.REACT_APP_OWM_API_KEY}`
+    );
   };
 
   return (
@@ -187,101 +221,33 @@ function App() {
             onSubmit={handleSubmit}
             aria-label="go-button"
           />
-          <label htmlFor="C">
-            <input
-              type="radio"
-              id="C"
-              name="units"
-              value="C"
-              onChange={changeUnits}
-              checked={units === "C"}
-            />
-            ºC
-          </label>
-          <label htmlFor="F">
-            <input
-              type="radio"
-              id="F"
-              name="units"
-              value="F"
-              onChange={changeUnits}
-              checked={units === "F"}
-            />
-            ºF
-          </label>
+          <div className="temp-button-container">
+            <FormControlLabel
+              control={<Switch checked={units==="C"} onChange={changeUnits} color="primary"/>}
+              label="Celsius"
+      />
+          </div>
         </form>
-        <div className="weather-info">
-          <div className="info-small">{cityLocalTime}</div>
-          <div className="weather-info-main">
-            <WeatherIcon icon={weatherIcon} weather={weatherDescription} />
-            <div>
-              <div className="temp-current">
-                {tempConverter(weatherData.main.temp)} º{units}
-              </div>
-              <div className="info-small">{weatherData.name}</div>
-            </div>
-          </div>
-          <div className="weather-info-extras">
-            <WeatherExtraInfo
-              align="left"
-              info={getPrecipitationChance(forecastData)}
-              description="precipitation chance"
-              image="umbrella.svg"
-              imageAlt="umbrella in rainy weather"
-              tooltip="Chance of rain/snow in the next 3 hours"
-            />
-            <WeatherExtraInfo
-              align="right"
-              info={`${tempConverter(weatherData.main.feels_like)} º${units}`}
-              description="feels like"
-              image="thermometer-sunny.svg"
-              imageAlt="thermometer in sunny weather"
-              tooltip="What temperature it really feels like outside, when accounting for humidity and wind"
-            />
-            <WeatherExtraInfo
-              align="left"
-              info={`${weatherData.main.humidity}%`}
-              description="humidity"
-              image="humidity.svg"
-              imageAlt="thermometer with raindrop"
-              tooltip="Humidity levels of 20-60% are in the 'Comfortable Range'."
-            />
-            <WeatherExtraInfo
-              align="right"
-              info={`${weatherData.wind.speed.toFixed(1)} m/s`}
-              description="wind speed"
-              image="windsock.svg"
-              imageAlt="windsock"
-              tooltip="Wind speeds above 12m/s can be dangerous"
-            />
-            <WeatherExtraInfo
-              align="left"
-              info={timeConverter(sunRise, weatherData.timezone)}
-              description="sunrise"
-              image="sunrise.svg"
-              imageAlt="sun rising over horizon"
-              tooltip="The time the first rays of sun appear on the horizon"
-            />
-            <WeatherExtraInfo
-              align="right"
-              info={timeConverter(sunSet, weatherData.timezone)}
-              description="sunset"
-              image="sunset.svg"
-              imageAlt="sun setting on the horizon"
-              tooltip="The time the last rays of sun disappear over the horizon"
-            />
-          </div>
-        </div>
-        <div className="attribution">
-          Icons made by{" "}
-          <a href="https://www.freepik.com" title="Freepik">
-            Freepik
-          </a>{" "}
-          from{" "}
-          <a href="https://www.flaticon.com/" title="Flaticon">
-            www.flaticon.com
-          </a>
-        </div>
+        {isValidCity === false && `No weather data found for ${queryCity} 😞 `}
+        {isValidCity && (
+          <WeatherInfo
+            cityName={weatherData.name}
+            temp={tempConverter(weatherData.main.temp)}
+            units={units}
+            cityLocalTime={cityLocalTime}
+            icon={weatherIcon}
+            weather={weatherDescription}
+            precipitation={getPrecipitationChance(forecastData)}
+            feelsLike={`${tempConverter(
+              weatherData.main.feels_like
+            )} º${units}`}
+            humidity={`${weatherData.main.humidity}%`}
+            windSpeed={`${weatherData.wind.speed.toFixed(1)} m/s`}
+            sunrise={timeConverter(sunRise, weatherData.timezone)}
+            sunset={timeConverter(sunSet, weatherData.timezone)}
+          />
+        )}
+        <Footer />
       </div>
     </div>
   );
