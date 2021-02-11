@@ -5,6 +5,7 @@ import Footer from "./components/Footer";
 import WeatherInfo from "./components/WeatherInfo";
 import Switch from "@material-ui/core/Switch";
 import FormControlLabel from "@material-ui/core/FormControlLabel";
+import { __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED } from "react-dom";
 
 function App() {
   // constants
@@ -17,14 +18,13 @@ function App() {
   const [isValidCity, setIsValidCity] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [units, setUnits] = useState("C");
+  const [isForecast, setIsForecast] = useState(false);
   const [weatherData, setWeatherData] = useState({
     main: {},
     sys: {},
     weather: [{}],
     wind: { speed: 0.0 },
   });
-  const sunRise = weatherData.sys.sunrise * 1000;
-  const sunSet = weatherData.sys.sunset * 1000;
 
   const [forecastData, setForecastData] = useState({ list: [{}] });
   const [weatherIcon, setWeatherIcon] = useState("loading");
@@ -42,6 +42,14 @@ function App() {
   if (initialRender.current) {
     console.log("initial render");
   }
+
+  const [mainTemp, setMainTemp] = useState("");
+  const [feelsLike, setFeelsLike] = useState("");
+  const [precipitationChance, setPrecipitationChance] = useState("");
+  const [humidity, setHumidity] = useState("");
+  const [windSpeed, setWindSpeed] = useState("");
+  const [sunrise, setSunrise] = useState(null);
+  const [sunset, setSunset] = useState(null);
 
   // effects
   useEffect(() => {
@@ -92,19 +100,57 @@ function App() {
   }, [queryUrl, forecastUrl]);
 
   useEffect(() => {
-    try {
-      const iconCode = weatherData.weather[0].icon;
-      if (!iconCode) return;
-      setWeatherIcon(
-        `${process.env.PUBLIC_URL}/assets/owm_weather_codes/${iconCode}@2x.png`
-      );
-      setWeatherDescription(weatherData.weather[0].description);
-      setCityLocalTime(timeConverter(Date.now(), weatherData.timezone, true));
-      // setIsLoading(false);
-    } catch (err) {
-      console.log(err);
+    if (!isForecast) {
+      try {
+        const iconCode = weatherData.weather[0].icon;
+        if (!iconCode) return;
+        setWeatherIcon(
+          `${process.env.PUBLIC_URL}/assets/owm_weather_codes/${iconCode}@2x.png`
+        );
+        setWeatherDescription(weatherData.weather[0].description);
+        setCityLocalTime(timeConverter(Date.now(), weatherData.timezone, true));
+        setMainTemp(tempConverter(weatherData.main.temp));
+        setFeelsLike(`${tempConverter(
+          weatherData.main.feels_like
+        )} º${units}`);
+        setPrecipitationChance(getPrecipitationChance(forecastData));
+        setHumidity(`${weatherData.main.humidity}%`);
+        setWindSpeed(`${weatherData.wind.speed.toFixed(1)} m/s`);
+        setSunrise(timeConverter(weatherData.sys.sunrise * 1000, weatherData.timezone));
+        setSunset(timeConverter(weatherData.sys.sunset * 1000, weatherData.timezone));
+     
+        // setIsLoading(false);
+      } catch (err) {
+        console.log(err);
+      }
+    } 
+  }, [weatherData, isForecast, units, forecastData]);
+
+  useEffect(() => {
+    if (isForecast) {
+      try {
+        const iconCode = forecastData.list[7].weather[0].icon;
+        if (!iconCode) return;
+        setWeatherIcon(
+          `${process.env.PUBLIC_URL}/assets/owm_weather_codes/${iconCode}@2x.png`
+        );
+        setWeatherDescription(forecastData.list[7].weather[0].description);
+        setCityLocalTime(timeConverter(Date.now() + 86400000, forecastData.city.timezone, true));
+        setMainTemp(tempConverter(forecastData.list[7].main.temp));
+        setFeelsLike(`${tempConverter(
+          forecastData.list[7].main.feels_like
+        )} º${units}`);
+        setPrecipitationChance(getPrecipitationChance(forecastData, {forecast24:true}));
+        setHumidity(`${forecastData.list[7].main.humidity}%`);
+        setWindSpeed(`${forecastData.list[7].wind.speed.toFixed(1)} m/s`);
+        setSunrise(null);
+        setSunset(null);
+        // setIsLoading(false);
+      } catch (err) {
+        console.log(err);
+      }
     }
-  }, [weatherData]);
+  }, [forecastData, isForecast, units]);
 
   // functions - conversions
   const timeConverter = (date, offset, showDate = false) => {
@@ -114,10 +160,10 @@ function App() {
     // Wed, 10 Feb 2021, 12:00 pm
     // offset is in seconds, and may not be
     // an integer number of hours
-
+   
     const offsetMilliseconds = offset * 1000;
     const localDate = new Date(date + offsetMilliseconds);
-
+    
     let options = {
       timeZone: "UTC",
       hour: "numeric",
@@ -133,7 +179,7 @@ function App() {
         day: "numeric",
       };
     }
-
+   
     const timeString = localDate.toLocaleString("en-GB", options);
     return timeString;
   };
@@ -175,10 +221,11 @@ function App() {
     initialRender.current = false;
   };
 
-  const getPrecipitationChance = (forecastData) => {
+  const getPrecipitationChance = (forecastData, options={}) => {
+    const forecastEntry = options.forecast24 ? 7 : 0; 
     try {
       if (forecastData.list[0].pop) {
-        return `${Math.round(forecastData.list[0].pop * 100)}%`;
+        return `${Math.round(forecastData.list[forecastEntry].pop * 100)}%`;
       } else {
         // no percentage of precipitation returned by API
         // i.e. no chance of precipitation in next 3 hours
@@ -199,6 +246,10 @@ function App() {
       setUnits("F");
     }
   };
+
+  const changeForecast = () => {
+    setIsForecast(!isForecast)
+  }
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -231,6 +282,16 @@ function App() {
             aria-label="go-button"
           />
           <div className="temp-button-container">
+          <FormControlLabel
+              control={
+                <Switch
+                  checked={isForecast}
+                  onChange={changeForecast}
+                  color="primary"
+                />
+              }
+              label="24h forecast"
+              />
             <FormControlLabel
               control={
                 <Switch
@@ -247,19 +308,17 @@ function App() {
         {isValidCity && (
           <WeatherInfo
             cityName={weatherData.name}
-            temp={tempConverter(weatherData.main.temp)}
+            temp={mainTemp}
             units={units}
             cityLocalTime={cityLocalTime}
             icon={weatherIcon}
             weather={weatherDescription}
-            precipitation={getPrecipitationChance(forecastData)}
-            feelsLike={`${tempConverter(
-              weatherData.main.feels_like
-            )} º${units}`}
-            humidity={`${weatherData.main.humidity}%`}
-            windSpeed={`${weatherData.wind.speed.toFixed(1)} m/s`}
-            sunrise={timeConverter(sunRise, weatherData.timezone)}
-            sunset={timeConverter(sunSet, weatherData.timezone)}
+            precipitation={precipitationChance}
+            feelsLike={feelsLike}
+            humidity={humidity}
+            windSpeed={windSpeed}
+            sunrise={sunrise}
+            sunset={sunset}
           />
         )}
         <Footer />

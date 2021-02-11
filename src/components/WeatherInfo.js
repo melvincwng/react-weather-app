@@ -105,7 +105,7 @@ function WeatherInfo({
             imageAlt="windsock"
           />
         </div>
-        <div
+        {sunrise && <div
           onMouseOver={() => {
             showToolTip("The time the first rays of sun appear on the horizon");
           }}
@@ -118,8 +118,8 @@ function WeatherInfo({
             image="sunrise.svg"
             imageAlt="sun rising over horizon"
           />
-        </div>
-        <div
+        </div>}
+        {sunset && <div
           onMouseOver={() => {
             showToolTip(
               "The time the last rays of sun disappear over the horizon"
@@ -134,7 +134,7 @@ function WeatherInfo({
             image="sunset.svg"
             imageAlt="sun setting on the horizon"
           />
-        </div>
+        </div>}
       </div>
     </div>
   );
