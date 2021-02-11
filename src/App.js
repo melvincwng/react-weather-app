@@ -1,13 +1,10 @@
 import "./App.css";
-import React, { useState, useEffect } from "react";
-import WeatherExtraInfo from "./components/WeatherExtraInfo";
+import React, { useState, useEffect, useRef } from "react";
 import LoaderApp from "./components/LoaderApp";
-import MessageFlash from "./components/MessageFlash";
-import WeatherMainInfo from "./components/WeatherMainInfo";
 import Footer from "./components/Footer";
 import WeatherInfo from "./components/WeatherInfo";
-import Switch from '@material-ui/core/Switch';
-import FormControlLabel from '@material-ui/core/FormControlLabel';
+import Switch from "@material-ui/core/Switch";
+import FormControlLabel from "@material-ui/core/FormControlLabel";
 
 function App() {
   // constants
@@ -16,6 +13,7 @@ function App() {
   const endpointForecast = "forecast";
 
   // state and state-dependent declarations
+  const initialRender = useRef(true);
   const [isValidCity, setIsValidCity] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [units, setUnits] = useState("C");
@@ -41,6 +39,10 @@ function App() {
     `${baseUrl}${endpointForecast}?q=${city}&appid=${process.env.REACT_APP_OWM_API_KEY}`
   );
 
+  if (initialRender.current) {
+    console.log("initial render");
+  }
+
   // effects
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
@@ -57,33 +59,36 @@ function App() {
   // }, [messageFlash]);
 
   useEffect(() => {
-    const fetchQuery = fetch(queryUrl)
-      .then((response) => response.json())
-      .then((json) => {
-        if (json.cod === "404") {
-          setIsValidCity(false);
-        } else {
-          setWeatherData(json);
-          setIsValidCity(true);
-        }
-      })
-      .catch(console.log);
+    if (initialRender.current === false) {
+      console.log("query fired due to change in queryUrl or forecastUrl");
+      const fetchQuery = fetch(queryUrl)
+        .then((response) => response.json())
+        .then((json) => {
+          if (json.cod === "404") {
+            setIsValidCity(false);
+          } else {
+            setWeatherData(json);
+            setIsValidCity(true);
+          }
+        })
+        .catch(console.log);
 
-    const fetchForecast = fetch(forecastUrl)
-      .then((response) => response.json())
-      .then((json) => {
-        if (json.cod === "404") {
-          setIsValidCity(false);
-        } else {
-          setForecastData(json);
-          setIsValidCity(true);
-        }
-      })
-      .catch(console.log);
+      const fetchForecast = fetch(forecastUrl)
+        .then((response) => response.json())
+        .then((json) => {
+          if (json.cod === "404") {
+            setIsValidCity(false);
+          } else {
+            setForecastData(json);
+            setIsValidCity(true);
+          }
+        })
+        .catch(console.log);
 
-    Promise.all([fetchQuery, fetchForecast]).then(() => {
-      setIsLoading(false);
-    });
+      Promise.all([fetchQuery, fetchForecast]).then(() => {
+        setIsLoading(false);
+      });
+    }
   }, [queryUrl, forecastUrl]);
 
   useEffect(() => {
@@ -149,21 +154,25 @@ function App() {
   const getInitialDataUsingGeolocation = (position) => {
     const lat = position.coords.latitude;
     const long = position.coords.longitude;
+    console.log("geolocation query fired during initial render");
     setQueryUrl(
       `${baseUrl}${endpoint}?lat=${lat}&lon=${long}&appid=${process.env.REACT_APP_OWM_API_KEY}`
     );
     setForecastUrl(
       `${baseUrl}${endpointForecast}?lat=${lat}&lon=${long}&appid=${process.env.REACT_APP_OWM_API_KEY}`
     );
+    initialRender.current = false;
   };
 
   const getInitialDataUsingDefaultCity = () => {
+    console.log("default city query fired during initial render");
     setQueryUrl(
       `${baseUrl}${endpoint}?q=${city}&appid=${process.env.REACT_APP_OWM_API_KEY}`
     );
     setForecastUrl(
       `${baseUrl}${endpointForecast}?q=${city}&appid=${process.env.REACT_APP_OWM_API_KEY}`
     );
+    initialRender.current = false;
   };
 
   const getPrecipitationChance = (forecastData) => {
@@ -185,9 +194,9 @@ function App() {
   const changeUnits = (e) => {
     const isCelsius = e.target.checked;
     if (isCelsius) {
-      setUnits("C")
+      setUnits("C");
     } else {
-      setUnits("F")
+      setUnits("F");
     }
   };
 
@@ -223,9 +232,15 @@ function App() {
           />
           <div className="temp-button-container">
             <FormControlLabel
-              control={<Switch checked={units==="C"} onChange={changeUnits} color="primary"/>}
+              control={
+                <Switch
+                  checked={units === "C"}
+                  onChange={changeUnits}
+                  color="primary"
+                />
+              }
               label="Celsius"
-      />
+            />
           </div>
         </form>
         {isValidCity === false && `No weather data found for ${queryCity} 😞 `}
